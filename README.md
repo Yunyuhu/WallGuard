@@ -11,10 +11,8 @@ DTAI 課程專題 WallGuard 的辨識模型，原名「牆牆出事」。拍一�
 | 筆記本 | 內容 | 開啟 |
 |---|---|---|
 | `1_resnet_classification.ipynb` | **初版**：ResNet50V2 替整張照片分類（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/1_resnet_classification.ipynb) |
-| `2_unet_segmentation.ipynb` | **最終版**：U-Net 影像分割、面積換算與 GPT 建議（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/2_unet_segmentation.ipynb) |
-| `3_wallguard_full.ipynb` | **完整版**：合併兩者並修正已知問題（2026 整理） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/3_wallguard_full.ipynb) |
-
-前兩份是 2024 年課堂上實際執行的筆記本，保留當時的程式與訓練紀錄。最終版的完整程式已經找不到，所以另外整理出完整版。
+| `2_unet_segmentation.ipynb` | **進階版**：U-Net 影像分割、面積換算與 GPT 建議（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/2_unet_segmentation.ipynb) |
+| `3_wallguard_full.ipynb` | **完整版**：合併兩者並修正已知問題（2026） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/3_wallguard_full.ipynb) |
 
 ## 💡 為什麼做
 
