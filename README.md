@@ -2,7 +2,12 @@
 
 ## 🎯 這是什麼
 
-DTAI 課程專題 WallGuard 的辨識模型，原名「牆牆出事」。拍一張牆面照片，AI 判斷是裂縫、壁癌還是鏽蝕，標出缺損範圍並估計面積，再請 GPT 給出白話的處理建議。
+DTAI 課程專題 WallGuard 的辨識系統，原名「牆牆出事」。拍一張牆面照片，系統先以 ResNet50V2 判斷是裂縫、壁癌還是鏽蝕，再以 U-Net 標出缺損範圍並估計面積，最後請 GPT 給出白話的處理建議。
+
+```
+照片 ─▶ ResNet50V2 判斷種類 ─┐
+     └▶ U-Net 標出缺損範圍 ──┼─▶ 面積估計 ─▶ GPT 處理建議
+```
 
 專案曾受邀在 InnoFest@ICI 2024 展出，也參加了 2025 AI Award。
 
@@ -10,9 +15,11 @@ DTAI 課程專題 WallGuard 的辨識模型，原名「牆牆出事」。拍一�
 
 | 筆記本 | 內容 | 開啟 |
 |---|---|---|
-| `1_resnet_classification.ipynb` | **初版**：ResNet50V2 替整張照片分類（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/1_resnet_classification.ipynb) |
-| `2_unet_segmentation.ipynb` | **進階版**：U-Net 影像分割、面積換算與 GPT 建議（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/2_unet_segmentation.ipynb) |
-| `3_wallguard_full.ipynb` | **完整版**：合併兩者並修正已知問題（2026） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/3_wallguard_full.ipynb) |
+| `3_wallguard_full.ipynb` | **完整版**：展出系統的整合流程，分類、分割、面積與建議一次完成 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/3_wallguard_full.ipynb) |
+| `1_resnet_classification.ipynb` | 開發紀錄・**初版**：ResNet50V2 分類實驗（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/1_resnet_classification.ipynb) |
+| `2_unet_segmentation.ipynb` | 開發紀錄・**進階版**：U-Net 分割實驗，含面積換算與 GPT 建議（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/2_unet_segmentation.ipynb) |
+
+展出版本的原始整合程式已經找不到，`3_wallguard_full` 依展出時的流程重新整理，並修正開發紀錄中的問題。
 
 ## 💡 為什麼做
 
@@ -36,33 +43,20 @@ DTAI 課程專題 WallGuard 的辨識模型，原名「牆牆出事」。拍一�
 
 ## 🛠️ 怎麼實作
 
-### 從初版到進階版
+### 系統流程（完整版）
 
-兩個版本使用同一份資料：3,000 張室內牆面照片，裂縫、壁癌、鏽蝕（混凝土剝落與鋼筋外露）各 1,000 張，來自 Roboflow Universe 的公開資料集。
+| 步驟 | 做法 |
+|---|---|
+| 資料 | 3,000 張室內牆面照片，裂縫、壁癌、鏽蝕（混凝土剝落與鋼筋外露）各 1,000 張，來自 Roboflow Universe 的公開資料集 |
+| 種類判斷 | 預訓練的 ResNet50V2 做遷移學習，判斷整張照片屬於哪一種牆損；信心不足時顯示「無法確定」 |
+| 範圍標註 | U-Net 影像分割標出缺損的位置與範圍 |
+| 面積估計 | 依分割結果計算缺損占照片的比例，並以每像素 0.5 mm 粗估面積 |
+| 處理建議 | 把種類、信心與面積交給 GPT，以繁體中文說明成因、嚴重程度與處理方式 |
+| 介面 | Gradio：上傳照片後一次看到種類機率、範圍疊圖、面積與建議 |
 
-| | 初版：ResNet50V2 分類 | 進階版：U-Net 影像分割 |
-|---|---|---|
-| 任務 | 判斷整張照片是裂縫、壁癌還是鏽蝕 | 標出缺損的位置與範圍，換算面積 |
-| 輸入 | 彩色照片，224×224 | 灰階照片，224×224；遮罩以灰階門檻 127 二值化產生 |
-| 模型 | 預訓練的 ResNet50V2 去掉頂層、凍結權重，接一層三類 softmax | U-Net：4 次「2 層卷積＋最大池化」擷取特徵，再以上採樣與跳接還原尺寸（約 3,100 萬個參數） |
-| 訓練 | categorical cross-entropy、Adam；batch size 8，8 個 epoch | Adam（1e-4），搭配 EarlyStopping、ModelCheckpoint、ReduceLROnPlateau；batch size 4，5 個 epoch |
-| 結果 | 準確率 98.97%（以訓練資料評估） | 驗證集準確率 90.42%、損失 0.124 |
-| 後續 | 只知道整張照片屬於哪一類，看不出位置與大小 | 把面積送給 `gpt-3.5-turbo` 產生建議，並用 Gradio 做成介面 |
+整理完整版時，也修正了開發紀錄中的問題：
 
-最後選擇進階版的做法：分數雖然較低，但能標出位置、計算面積，更貼近民眾實際要判斷的事。
-
-![進階版：原始照片與三個輸出通道的遮罩](images/wallguard-masks.png)
-
-### 完整版
-
-```
-照片 ─▶ ResNet50V2 判斷種類 ─┐
-     └▶ U-Net 標出缺損範圍 ──┼─▶ 面積估計 ─▶ GPT 處理建議
-```
-
-完整版把兩種做法接成一條流程：ResNet50V2 負責判斷種類，U-Net 負責標出範圍，再依範圍估計面積、交給 GPT 產生建議，並修正原始筆記本的問題：
-
-| 原始筆記本的問題 | 完整版的做法 |
+| 開發紀錄的問題 | 完整版的做法 |
 |---|---|
 | 初版用訓練資料評估準確率 | 分層切出 20% 驗證集，兩個模型共用同一份切分，並列出混淆矩陣 |
 | 進階版的訓練／驗證集沒有打散，驗證集只有壁癌 | 打散後分層切分，三類都在驗證集 |
@@ -74,14 +68,31 @@ DTAI 課程專題 WallGuard 的辨識模型，原名「牆牆出事」。拍一�
 
 執行時會印出 ResNet50V2 的驗證集準確率與混淆矩陣，以及 U-Net 的像素準確率與 IoU。
 
+### 開發過程：兩個模型實驗
+
+兩個實驗使用同一份資料：3,000 張室內牆面照片，裂縫、壁癌、鏽蝕（混凝土剝落與鋼筋外露）各 1,000 張，來自 Roboflow Universe 的公開資料集。
+
+| | 初版：ResNet50V2 分類 | 進階版：U-Net 影像分割 |
+|---|---|---|
+| 任務 | 判斷整張照片是裂縫、壁癌還是鏽蝕 | 標出缺損的位置與範圍，換算面積 |
+| 輸入 | 彩色照片，224×224 | 灰階照片，224×224；遮罩以灰階門檻 127 二值化產生 |
+| 模型 | 預訓練的 ResNet50V2 去掉頂層、凍結權重，接一層三類 softmax | U-Net：4 次「2 層卷積＋最大池化」擷取特徵，再以上採樣與跳接還原尺寸（約 3,100 萬個參數） |
+| 訓練 | categorical cross-entropy、Adam；batch size 8，8 個 epoch | Adam（1e-4），搭配 EarlyStopping、ModelCheckpoint、ReduceLROnPlateau；batch size 4，5 個 epoch |
+| 結果 | 準確率 98.97%（以訓練資料評估） | 驗證集準確率 90.42%、損失 0.124 |
+| 後續 | 只知道整張照片屬於哪一類，看不出位置與大小 | 把面積送給 `gpt-3.5-turbo` 產生建議，並用 Gradio 做成介面 |
+
+兩個實驗各有所長：ResNet50V2 能判斷種類，但看不出位置與大小；U-Net 能標出位置、計算面積，卻分不出種類。展出版本因此把兩者整合成同一條流程。
+
+![進階版：原始照片與三個輸出通道的遮罩](images/wallguard-masks.png)
+
 ## 🙋 我負責什麼
 
 我在 4 人團隊（DesignLens）裡負責資訊開發和專案管理（PM），程式由我和一位隊友共同撰寫。
 
 ## 📍 完成到哪
 
-- **2024：** 完成初版與進階版，受邀在 InnoFest@ICI 2024 展出。
-- **2026：** 回頭檢視程式，整理出完整版並修正上述問題。
+- **2024：** 分別完成 ResNet50V2 與 U-Net 的模型實驗，整合成完整系統後，受邀在 InnoFest@ICI 2024 展出。
+- **2026：** 展出版本的整合程式遺失，依展出流程重新整理完整版，並修正開發紀錄中的問題。
 
 仍有的限制：
 
