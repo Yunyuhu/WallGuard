@@ -1,14 +1,20 @@
 # WallGuard：牆面危害 AI 辨識系統
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/wallguard.ipynb)
-
 ## 🎯 這是什麼
 
-這是 DTAI 課程專題 WallGuard 的辨識模型原型，原名「牆牆出事」。上傳一張牆面照片，U-Net 模型會切出缺損區域並換算面積，再請 GPT 根據結果給出處理建議，全部在一份 Colab 筆記本裡完成。
+DTAI 課程專題 WallGuard 的辨識模型，原名「牆牆出事」。拍一張牆面照片，AI 判斷是裂縫、壁癌還是鏽蝕，標出缺損範圍並估計面積，再請 GPT 給出白話的處理建議。
 
 專案曾受邀在 InnoFest@ICI 2024 展出，也參加了 2025 AI Award。
 
 ▶️ [Demo 影片（AI Award 2025）](https://www.youtube.com/watch?v=pVikml-YPsw)
+
+| 筆記本 | 內容 | 開啟 |
+|---|---|---|
+| `1_resnet_classification.ipynb` | **初版**：ResNet50V2 替整張照片分類（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/1_resnet_classification.ipynb) |
+| `2_unet_segmentation.ipynb` | **最終版**：U-Net 影像分割、面積換算與 GPT 建議（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/2_unet_segmentation.ipynb) |
+| `3_wallguard_full.ipynb` | **完整版**：合併兩者並修正已知問題（2026 整理） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/3_wallguard_full.ipynb) |
+
+前兩份是 2024 年課堂上實際執行的筆記本，保留當時的程式與訓練紀錄。最終版的完整程式已經找不到，所以另外整理出完整版。
 
 ## 💡 為什麼做
 
@@ -16,53 +22,78 @@
 
 ## 🕹️ 怎麼用
 
-1. 點上方的 **Open in Colab**。
-2. 在「執行階段 → 變更執行階段類型」選 **T4 GPU**。
-3. 在左側欄的 🔑 **Secrets** 新增 `OPENAI_API_KEY`，並開啟「筆記本存取權」。
-4. 從第一格依序執行到最後一格：
-   - 程式會從 [dtaidataset](https://github.com/Yunyuhu/dtaidataset) 下載約 190 MB 的訓練資料。
-   - 訓練 5 個 epoch，T4 上約需 50 分鐘。
-   - 最後一格會開啟 Gradio 介面，上傳牆面照片就能看到結果。
+建議直接執行**完整版**：
 
-> 模型檔（約 120 MB）沒有放進這個 repo，每次執行都會重新訓練。
+1. 點完整版的 **Open in Colab**。
+2. 在「執行階段 → 變更執行階段類型」選 **T4 GPU**。
+3. （可選）在左側欄的 🔑 **Secrets** 新增 `OPENAI_API_KEY`，並開啟「筆記本存取權」。沒有設定也能執行，只是不會產生 AI 建議。
+4. 從第一格依序執行：
+   - 程式會從 [dtaidataset](https://github.com/Yunyuhu/dtaidataset) 下載約 190 MB 的訓練資料。
+   - 依序訓練 ResNet50V2 與 U-Net，T4 上約 20～30 分鐘。想先確認流程，把第一格的 `QUICK_TEST` 改成 `True`，幾分鐘就能跑完。
+   - 最後開啟 Gradio 介面，上傳牆面照片就能看到種類、範圍、面積與建議。
+
+初版與最終版也能照同樣步驟執行，但兩份都**一定要**設定 `OPENAI_API_KEY`，因為建立 OpenAI 連線的那一格會讀取金鑰。最終版的訓練約需 50 分鐘。
+
+> 模型檔（U-Net 約 120 MB）沒有放進這個 repo，每次執行都會重新訓練。
 
 ## 🛠️ 怎麼實作
 
-| 步驟 | 做法 |
+### 從初版到最終版
+
+兩個版本使用同一份資料：3,000 張室內牆面照片，裂縫、壁癌、鏽蝕（混凝土剝落與鋼筋外露）各 1,000 張，來自 Roboflow Universe 的公開資料集。
+
+| | 初版：ResNet50V2 分類 | 最終版：U-Net 影像分割 |
+|---|---|---|
+| 任務 | 判斷整張照片是裂縫、壁癌還是鏽蝕 | 標出缺損的位置與範圍，換算面積 |
+| 輸入 | 彩色照片，224×224 | 灰階照片，224×224；遮罩以灰階門檻 127 二值化產生 |
+| 模型 | 預訓練的 ResNet50V2 去掉頂層、凍結權重，接一層三類 softmax | U-Net：4 次「2 層卷積＋最大池化」擷取特徵，再以上採樣與跳接還原尺寸（約 3,100 萬個參數） |
+| 訓練 | categorical cross-entropy、Adam；batch size 8，8 個 epoch | Adam（1e-4），搭配 EarlyStopping、ModelCheckpoint、ReduceLROnPlateau；batch size 4，5 個 epoch |
+| 結果 | 準確率 98.97%（以訓練資料評估） | 驗證集準確率 90.42%、損失 0.124 |
+| 後續 | 只知道整張照片屬於哪一類，看不出位置與大小 | 把面積送給 `gpt-3.5-turbo` 產生建議，並用 Gradio 做成介面 |
+
+最後選擇最終版的做法：分數雖然較低，但能標出位置、計算面積，更貼近民眾實際要判斷的事。
+
+![最終版：原始照片與三個輸出通道的遮罩](images/wallguard-masks.png)
+
+### 完整版
+
+```
+照片 ─▶ ResNet50V2 判斷種類 ─┐
+     └▶ U-Net 標出缺損範圍 ──┼─▶ 面積估計 ─▶ GPT 處理建議
+```
+
+完整版把兩種做法接成一條流程：ResNet50V2 負責判斷種類，U-Net 負責標出範圍，再依範圍估計面積、交給 GPT 產生建議，並修正原始筆記本的問題：
+
+| 原始筆記本的問題 | 完整版的做法 |
 |---|---|
-| 資料 | 3,000 張室內牆面照片，鏽蝕（混凝土剝落與鋼筋外露）、裂縫、壁癌各 1,000 張，來自 Roboflow Universe 的公開資料集 |
-| 前處理 | 照片轉成灰階並縮放成 224×224；遮罩由 OpenCV 以灰階門檻 127 二值化產生 |
-| 資料增強 | 水平翻轉、垂直翻轉、隨機旋轉（最多 90 度） |
-| 模型 | U-Net：4 次「2 層卷積＋最大池化」擷取特徵，再以上採樣與跳接還原尺寸，最後輸出 3 個通道（約 3,100 萬個參數） |
-| 訓練 | Adam（learning rate 1e-4），搭配 EarlyStopping、ModelCheckpoint、ReduceLROnPlateau；batch size 4，5 個 epoch |
-| 面積換算 | 計算每個通道的像素數，乘上假設的像素尺寸（0.5 mm × 0.5 mm）換算成 mm² |
-| 生成建議 | 把各類面積送給 `gpt-3.5-turbo`，請它列出簡短的處理建議 |
-| 介面 | Gradio：上傳照片後顯示三張遮罩、各類面積與 AI 建議 |
+| 初版用訓練資料評估準確率 | 分層切出 20% 驗證集，兩個模型共用同一份切分，並列出混淆矩陣 |
+| 最終版的訓練／驗證集沒有打散，驗證集只有壁癌 | 打散後分層切分，三類都在驗證集 |
+| 最終版的遮罩用固定門檻，沒有用到照片的類別，標籤只分出明暗 | 依類別用形態學運算找出比周圍亮（壁癌）或暗（裂縫、鏽蝕）的區域，標成「缺損／背景」；裂縫只保留夠長的線條 |
+| 遮罩存成 JPEG，壓縮雜訊變成假的類別 | 遮罩只放在記憶體，不經過 JPEG |
+| 三類 softmax 卻用 binary cross-entropy | 改成單一通道 sigmoid，損失函數用 binary cross-entropy＋Dice（缺損只占小部分，避免模型全部猜背景），並計算 IoU |
+| 上傳的 RGB 照片用 BGR 轉灰階 | 一律以 RGB 轉換 |
+| GPT 提示詞為英文、回答很短 | 改成繁體中文，依種類、面積說明成因、嚴重程度與處理方式 |
 
-訓練結果：驗證集準確率 90.42%、損失 0.124。
-
-![原始照片與三個輸出通道的遮罩](images/wallguard-masks.png)
+執行時會印出 ResNet50V2 的驗證集準確率與混淆矩陣，以及 U-Net 的像素準確率與 IoU。
 
 ## 🙋 我負責什麼
 
-我在 4 人團隊（DesignLens）裡負責資訊開發和專案管理（PM）。這份筆記本由我和一位隊友共同撰寫。
+我在 4 人團隊（DesignLens）裡負責資訊開發和專案管理（PM），程式由我和一位隊友共同撰寫。
 
 ## 📍 完成到哪
 
-這是課程專題的原型，可以完整跑完訓練並開啟介面。回頭檢視程式，有以下限制：
+- **2024：** 完成初版與最終版，受邀在 InnoFest@ICI 2024 展出。
+- **2026：** 回頭檢視程式，整理出完整版並修正上述問題。
 
-- **遮罩其實只分出明暗：** 遮罩是用灰階門檻把照片轉成黑白，再把像素值壓進 3 個類別，過程中沒有用到照片原本的類別。因此標籤幾乎只剩「暗」和「亮」兩種，三個輸出通道對應的是明暗，而不是三種牆損。
-  - 上圖中，鏽蝕（concrete）通道幾乎涵蓋整片較暗的背景，壁癌（efflorescence）通道是亮的區域，裂縫（crack）通道則落在明暗交界。
-  - 90.42% 的準確率反映的是模型重現這個門檻的程度。
-- **驗證集只有壁癌：** 照片依類別排序後直接取前 80% 訓練，所以驗證集的 600 張全是壁癌照片。
-- **損失函數不搭：** 輸出層是三類 softmax，損失函數卻用 `binary_crossentropy`。
-- **面積不是真實尺寸：** 像素尺寸是假設值，沒有依拍攝距離校正。
-- **GPT 模型：** `gpt-3.5-turbo` 之後可能停用，屆時需要改成新的模型名稱。
+仍有的限制：
+
+- **遮罩是近似標註：** U-Net 的遮罩由影像處理自動產生，不是人工標註，IoU 衡量的是模型重現這些遮罩的程度。裂縫資料夾裡也混有沒有裂縫的牆面照片，遮罩會標到一些紋理。
+- **面積不是真實尺寸：** 以「每個像素 0.5 mm」粗估，沒有依拍攝距離校正。
+- **GPT 模型名稱：** 完整版預設 `gpt-4o-mini`，若 OpenAI 停用，請在第一格修改 `OPENAI_MODEL`。
 
 下一步：
 
-- 改用人工標註或內含遮罩的公開資料集，讓三個通道真正對應三種牆損。
-- 打散資料後再切分，讓三類都出現在驗證集。
+- 改用人工標註的遮罩，讓 U-Net 學到真正的缺損範圍。
 - 以 RAG 提升建議內容的精準度，減少幻覺。
 
 ## 🔗 去哪看成果
