@@ -15,11 +15,9 @@ DTAI 課程專題 WallGuard 的辨識系統，原名「牆牆出事」。拍一�
 
 | 筆記本 | 內容 | 開啟 |
 |---|---|---|
-| `3_wallguard_full.ipynb` | **完整版**：展出系統的整合流程，分類、分割、面積與建議一次完成 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/3_wallguard_full.ipynb) |
+| `3_wallguard_full.ipynb` | **完整版**：展出時的整合系統，分類、分割、面積與建議一次完成 | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/3_wallguard_full.ipynb) |
 | `1_resnet_classification.ipynb` | 開發紀錄・**初版**：ResNet50V2 分類實驗（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/1_resnet_classification.ipynb) |
 | `2_unet_segmentation.ipynb` | 開發紀錄・**進階版**：U-Net 分割實驗，含面積換算與 GPT 建議（2024） | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Yunyuhu/WallGuard/blob/main/2_unet_segmentation.ipynb) |
-
-展出版本的原始整合程式已經找不到，`3_wallguard_full` 依展出時的流程重新整理，並修正開發紀錄中的問題。
 
 ## 💡 為什麼做
 
@@ -54,9 +52,9 @@ DTAI 課程專題 WallGuard 的辨識系統，原名「牆牆出事」。拍一�
 | 處理建議 | 把種類、信心與面積交給 GPT，以繁體中文說明成因、嚴重程度與處理方式 |
 | 介面 | Gradio：上傳照片後一次看到種類機率、範圍疊圖、面積與建議 |
 
-整理完整版時，也修正了開發紀錄中的問題：
+從兩個模型實驗整合成完整版時，也改進了實驗階段的問題：
 
-| 開發紀錄的問題 | 完整版的做法 |
+| 實驗階段的問題 | 完整版的做法 |
 |---|---|
 | 初版用訓練資料評估準確率 | 分層切出 20% 驗證集，兩個模型共用同一份切分，並列出混淆矩陣 |
 | 進階版的訓練／驗證集沒有打散，驗證集只有壁癌 | 打散後分層切分，三類都在驗證集 |
@@ -92,7 +90,8 @@ DTAI 課程專題 WallGuard 的辨識系統，原名「牆牆出事」。拍一�
 ## 📍 完成到哪
 
 - **2024：** 分別完成 ResNet50V2 與 U-Net 的模型實驗，整合成完整系統後，受邀在 InnoFest@ICI 2024 展出。
-- **2026：** 展出版本的整合程式遺失，依展出流程重新整理完整版，並修正開發紀錄中的問題。
+- **2025：** 參加 AI Award。
+- **2026：** 公開完整版與兩份開發紀錄的程式碼，可在 Colab 直接執行。
 
 仍有的限制：
 
